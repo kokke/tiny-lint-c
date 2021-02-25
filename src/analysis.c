@@ -10,10 +10,12 @@ Static analysis at the lexical abstraction level
 #include "lexer.h"
 #include "source.h"
 #include "str.h"
-#include "check_assign_in_ctrl_stmt.h"   /* check for assignments in expressions affecting control flow */
-#include "check_missing_void.h"          /* check fundecls for missing (void), e.g. f() vs f(void) <-- correct */
-#include "check_misleading_var_name.h"   /* check if variable names are misleading, e.g. if u32var is of type int8_t */
-#include "check_smcln_after_ctrl_stmt.h" /* check for suspicious semicolons, e.g. 'if (X); { <always-on> }' etc. */
+#include "check_assign_in_ctrl_stmt.h"       /* check for assignments in expressions affecting control flow */
+#include "check_missing_void.h"              /* check fundecls for missing (void), e.g. f() vs f(void) <-- correct */
+#include "check_misleading_var_name.h"       /* check if variable names are misleading, e.g. if u32var is of type int8_t */
+#include "check_smcln_after_ctrl_stmt.h"     /* check for suspicious semicolons, e.g. 'if (X); { <always-on> }' etc. */
+#include "check_return_count_in_functions.h" /* check how many return-statements are in a function, warn on too many */
+
 
 /* max size of token-buffer for each file */
 #define MAXTOKENBUFSIZE (1024*1024)/1
@@ -95,6 +97,7 @@ static void analysis_new_file(void)
   check_missing_void_init();
   check_misleading_var_name_init();
   check_smcln_after_ctrl_stmt_init();
+  check_return_count_in_functions_init();
 }
 
 
@@ -110,6 +113,7 @@ static void analysis_new_token(void)
   check_missing_void_new_token(&s, toks, tok_idx);
   check_misleading_var_name_new_token(&s, toks, tok_idx);
   check_smcln_after_ctrl_stmt_new_token(&s, toks, tok_idx);
+  check_return_count_in_functions_new_token(&s, toks, tok_idx);
 }
 
 
