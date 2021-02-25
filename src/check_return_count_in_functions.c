@@ -37,7 +37,20 @@ void check_return_count_in_functions_new_token(struct source_file* s, struct tok
     if (state != state_last_warn)
     {
       state_last_warn = state;
-      fprintf(stdout, "[%s:%d] (style) %d return statements in a single function.\n", s->file_path, toks[i - 1].lineno, state);
+
+      /* prettier names in the output: '3rd return statement in function' etc. */
+      const char* endings[] = { "th", "st", "nd", "rd" };
+      const char* ending = endings[0];
+
+      if (    (state < 10)
+           || (state > 20))
+      {
+             if (state % 10 == 1) ending = endings[1];
+        else if (state % 10 == 2) ending = endings[2];
+        else if (state % 10 == 3) ending = endings[3];
+      }
+
+      fprintf(stdout, "[%s:%d] (style) %d%s return statement in function.\n", s->file_path, toks[i - 1].lineno, state, ending);
     }
   }
 
