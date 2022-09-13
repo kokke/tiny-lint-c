@@ -1,0 +1,4 @@
+./tests/test_misleading_name.h
+./tests/test_missing_void.h
+./tests/test_missing_void_lrlf.h
+./tests/test_smcln_after_ctrl_stmt.c
