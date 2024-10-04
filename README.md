@@ -1,3 +1,5 @@
+![CI](https://github.com/kokke/tiny-HMAC-c/actions/workflows/c-cpp.yml/badge.svg)
+
 # tiny-lint-c
 ## A small and simple static analysis tool for C implemented in C
 ### Description
