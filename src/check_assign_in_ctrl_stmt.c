@@ -1,13 +1,19 @@
 #include "check_assign_in_ctrl_stmt.h"
+#include "check_common.h"
 #include <stdio.h>
 #include <string.h> /* strncmp */
 
 
-static int paren_lvl = 0; /* balance of '(', ')' */
-static int paren_lvl_s1 = 0; /* balance of '(', ')' */
-static int paren_lvl_s1_max = 0;
-static int state = 0;
-static int if_while_for = 0;
+enum state
+{
+  S_IDLE         = 0, /* outside any control expression */
+  S_IN_CTRL_EXPR = 1, /* inside if/while/for ( ... )    */
+};
+
+static struct nesting n;
+static int paren_lvl_s1 = 0;
+static enum state state = S_IDLE;
+static enum ctrl_kind kind = CTRL_IF;
 static int nsemicolons_s1 = 0;
 static int ncommas_s1 = 0;
 static int ncommas_defect = 0;
@@ -18,9 +24,9 @@ static int found_defect = 0;
 /* reset balance counter when loading new file */
 void check_assign_in_ctrl_stmt_init(void)
 {
-  paren_lvl = 0;
-  state = 0;
-  if_while_for = 0;
+  nesting_reset(&n);
+  state = S_IDLE;
+  kind = CTRL_IF;
   paren_lvl_s1 = 0;
   ncommas_s1 = 0;
   ncommas_defect = 0;
@@ -43,17 +49,12 @@ void check_assign_in_ctrl_stmt_new_token(struct source_file* s, struct token* to
     printf("toks[i].symbol == '%s'\n", toks[i].symbol);
     */
     found_defect = 0;
-    state = 1;
+    state = S_IN_CTRL_EXPR;
     nsemicolons_s1 = 0;
-    paren_lvl_s1 = paren_lvl;
-    switch (toks[i].symbol[0])
-    {
-      case 'i': if_while_for = 0; break;
-      case 'w': if_while_for = 1; break;
-      case 'f': if_while_for = 2; break;
-    }
+    paren_lvl_s1 = n.paren_lvl;
+    kind = ctrl_kind_from_symbol(&toks[i]);
   }
-  else if (state == 1)
+  else if (state == S_IN_CTRL_EXPR)
   {
     if (toks[i].symbol[0] == ';')
     {
@@ -65,19 +66,18 @@ void check_assign_in_ctrl_stmt_new_token(struct source_file* s, struct token* to
     }
 
     if (    (toks[i].toktyp == OP_RPAREN)
-         && ((paren_lvl - paren_lvl_s1) == 1))
+         && ((n.paren_lvl - paren_lvl_s1) == 1))
     {
-      state = 0;
+      state = S_IDLE;
       if (found_defect && (ncommas_s1 == ncommas_defect))
       {
-        const char* str_ifw[] = { "if", "while", "for" };
-        if (if_while_for != 2 || ((nsemicolons_s1 == 3) || (nsemicolons_s1 == 1))) /* for-loop? then check middle expression Y in 'FOR ( X ; Y ; Z )' */
+        if (kind != CTRL_FOR || ((nsemicolons_s1 == 3) || (nsemicolons_s1 == 1))) /* for-loop? then check middle expression Y in 'FOR ( X ; Y ; Z )' */
         {
-          fprintf(stdout, "[%s:%d] (warning) Assignment in expression controlling program flow (%s-stmt).\n", s->file_path, toks[i - 1].lineno, str_ifw[if_while_for]);
+          fprintf(stdout, "[%s:%d] (warning) Assignment in expression controlling program flow (%s-stmt).\n", s->file_path, toks[i - 1].lineno, ctrl_kind_names[kind]);
         }
       }
     }
-    else if (    ((paren_lvl - paren_lvl_s1) == 1)
+    else if (    ((n.paren_lvl - paren_lvl_s1) == 1)
               && (    (toks[i].toktyp == OP_ASSIGN)
                    || (toks[i].toktyp == OP_ASSIGN_LSH)
                    || (toks[i].toktyp == OP_ASSIGN_RSH)
@@ -94,10 +94,6 @@ void check_assign_in_ctrl_stmt_new_token(struct source_file* s, struct token* to
     }
   }
 
-       if (toks[i].toktyp == OP_LPAREN) { paren_lvl += 1; }
-  else if (toks[i].toktyp == OP_RPAREN) { paren_lvl -= 1; }
-
-  if (paren_lvl < 0) { paren_lvl = 0; }
-
+  nesting_update(&n, &toks[i]);
 }
 

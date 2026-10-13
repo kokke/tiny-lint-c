@@ -36,9 +36,6 @@ void check_misleading_var_name_init(void)
 
 void check_misleading_var_name_new_token(struct source_file* s, struct token* toks, int tok_idx)
 {
-  /* struct source_file* s is unused */
-  (void) s;
-
   /* we need at least two tokens to run this check */
   if (tok_idx < 1)
   {

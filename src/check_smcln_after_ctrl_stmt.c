@@ -1,116 +1,99 @@
 #include "check_smcln_after_ctrl_stmt.h"
+#include "check_common.h"
 #include <stdio.h>
 
 
-static int paren_lvl = 0;    /* balance of '(', ')' */
-static int brace_lvl = 0;    /* balance of '{', '}' */
+enum state
+{
+  S_IDLE            =  0, /* looking for a control statement        */
+  S_DO_BODY         = -1, /* inside do { ... }, awaiting while ;     */
+  S_AFTER_KEYWORD   =  1, /* saw if/while/for, expecting '('         */
+  S_AFTER_PAREN     =  2, /* saw matching ')', expecting ';' or '{'  */
+  S_AFTER_SEMICOLON =  3, /* saw ')' then ';', warn if next is '{'   */
+};
+
+static struct nesting n;
 static int paren_lvl_s1 = 0;
 static int do_brace_lvl = 0;
-static int state = 0;
-static int if_while_for = 0;
+static enum state state = S_IDLE;
+static enum ctrl_kind kind = CTRL_IF;
 
 
 /* reset balance counter when loading new file */
 void check_smcln_after_ctrl_stmt_init(void)
 {
-  paren_lvl = 0;
+  nesting_reset(&n);
   paren_lvl_s1 = 0;
-  brace_lvl = 0;
   do_brace_lvl = 0;
-  state = 0;
-  if_while_for = 0;
+  state = S_IDLE;
+  kind = CTRL_IF;
 }
 
 static void _reset(void)
 {
-  state = 0;
+  state = S_IDLE;
 }
 
 void check_smcln_after_ctrl_stmt_new_token(struct source_file* s, struct token* toks, int tok_idx)
 {
   int i = tok_idx;
-  
-  if (    (state == -1)
+
+  if (    (state == S_DO_BODY)
        && (toks[i].toktyp == OP_SEMICOLON)
-       && ((do_brace_lvl - brace_lvl) == 0))
+       && ((do_brace_lvl - n.brace_lvl) == 0))
   {
-    state = 0;
+    state = S_IDLE;
   }
-  else if (state == 0)
+  else if (state == S_IDLE)
   {
     if (    (toks[i - 1].toktyp == KW_DO)
          && (toks[  i  ].toktyp == OP_LBRACE))
     {
-      state = -1;
-      do_brace_lvl = brace_lvl;
+      state = S_DO_BODY;
+      do_brace_lvl = n.brace_lvl;
     }
     else if (    (toks[i].toktyp == KW_IF)
               || (toks[i].toktyp == KW_FOR)
               || (toks[i].toktyp == KW_WHILE))
     {
-      state = 1;
-      paren_lvl_s1 = paren_lvl;
-      switch (toks[i].symbol[0])
-      {
-        case 'i': if_while_for = 0; break;
-        case 'w': if_while_for = 1; break;
-        case 'f': if_while_for = 2; break;
-      }
+      state = S_AFTER_KEYWORD;
+      paren_lvl_s1 = n.paren_lvl;
+      kind = ctrl_kind_from_symbol(&toks[i]);
     }
   }
-  else if (state == 1)
+  else if (state == S_AFTER_KEYWORD)
   {
-    if (toks[i].toktyp == OP_LPAREN)
-    {
-      switch (toks[i - 1].symbol[0])
-      {
-        case 'i': if (toks[i - 1].symlen != 2) state = 4; break;
-        case 'w': if (toks[i - 1].symlen != 5) state = 4; break;
-        case 'f': if (toks[i - 1].symlen != 3) state = 4; break;
-      }
-    }
-
     if (    (toks[i].toktyp == OP_RPAREN)
-         && ((paren_lvl - paren_lvl_s1) == 1))
+         && ((n.paren_lvl - paren_lvl_s1) == 1))
     {
-      state = 2;
+      state = S_AFTER_PAREN;
     }
-    else if (toks[i].toktyp == OP_SEMICOLON && if_while_for != 2)
+    else if (toks[i].toktyp == OP_SEMICOLON && kind != CTRL_FOR)
     {
       _reset();
     }
   }
-  else if (state == 2)
+  else if (state == S_AFTER_PAREN)
   {
     if (toks[i].toktyp == OP_SEMICOLON)
     {
-      state = 3;
+      state = S_AFTER_SEMICOLON;
     }
     else
     {
       _reset();
     }
   }
-  else if (state == 3)
+  else if (state == S_AFTER_SEMICOLON)
   {
     if (toks[i].toktyp == OP_LBRACE)
     {
-      const char* str_ifw[] = { "if", "while", "for" };
-      fprintf(stdout, "[%s:%d] (warning) Suspicious semicolon after %s-stmt.\n", s->file_path, toks[i - 1].lineno, str_ifw[if_while_for] );
+      fprintf(stdout, "[%s:%d] (warning) Suspicious semicolon after %s-stmt.\n", s->file_path, toks[i - 1].lineno, ctrl_kind_names[kind] );
     }
     _reset();
   }
 
-  
-
-       if (toks[i].toktyp == OP_LBRACE) { brace_lvl += 1; }
-  else if (toks[i].toktyp == OP_RBRACE) { brace_lvl -= 1; }
-  else if (toks[i].toktyp == OP_LPAREN) { paren_lvl += 1; }
-  else if (toks[i].toktyp == OP_RPAREN) { paren_lvl -= 1; }
-
-  if (paren_lvl < 0) { paren_lvl = 0; }
-  if (brace_lvl < 0) { brace_lvl = 0; }
-
+  nesting_update(&n, &toks[i]);
 }
 
 

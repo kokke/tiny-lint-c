@@ -51,7 +51,15 @@ static int function4(void)
   if (rand() == 21) return 21; /* HIT */
   if (rand() == 22) return 22; /* HIT */
   if (rand() == 23) return 23; /* HIT */
-  if (rand() == 24) return 25; /* HIT */
+  if (rand() == 24) return 24; /* HIT */
+  if (rand() == 25) return 25; /* HIT */
+  if (rand() == 26) return 26; /* HIT */
+  if (rand() == 27) return 27; /* HIT */
+  if (rand() == 28) return 28; /* HIT */
+  if (rand() == 29) return 29; /* HIT */
+  if (rand() == 30) return 30; /* HIT */
+  if (rand() == 31) return 31; /* HIT */
+  if (rand() == 32) return 32; /* HIT */
 }
 
 

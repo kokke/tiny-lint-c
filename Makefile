@@ -26,6 +26,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%$(SRC_EXT)
 clean:
 	rm -rf $(BUILD_DIR)/*
 	rm -f ./$(BIN_NAME)
+	find $(TST_DIR) -name "*.[ch]" > $(TST_FILE)
 
 test:
 	# First and most importantly: scan the source of the tool itself, just to make a point
